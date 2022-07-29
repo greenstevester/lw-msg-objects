@@ -2,12 +2,13 @@ package net.greensill.lw.msg.objects;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.Maps;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
+import lombok.ToString;
 import lombok.extern.slf4j.Slf4j;
 import net.greensill.lw.testutils.TestUtils;
 import org.junit.jupiter.api.BeforeEach;
@@ -15,10 +16,12 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.io.Serializable;
 import java.time.Clock;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.Map;
+import java.util.UUID;
 
 import static net.greensill.lw.common.Common.getFormattedInstant;
 import static org.junit.jupiter.api.Assertions.*;
@@ -27,18 +30,17 @@ import static org.junit.jupiter.api.Assertions.*;
 @Tag("UnitTest")
 public class EventUnitTest extends AbstractUnitTest {
 
-    public static final String FIRST_VALUE = "first-value";
-    public final static Map<String, Object> HEADER_MAP = Collections.singletonMap("first-key", "first-value");
     public static final String KEY_WITH_NULL_VALUE = "nullkey";
     public static final String OTHER_KEY = "otherkey";
     public static final String VALUE = "value";
     public static final String THIRD_KEY = "third-key";
     public static final String THIRD_VALUE = "third-value";
-    public static final String SECOND_KEY = "second-key";
-    public static final String SECOND_VALUE = "second-value";
-    public static final String FIRST_KEY = "first-key";
     public static final String DATE_TIME_STAMP = "2022-07-28T18:19:09.456944Z";
     public static final String PAYLOAD = "payload";
+
+    UUID TEST_UUID = UUID.fromString("48fa9fb7-1177-48fa-8198-0f80f06b100a");
+
+    public final static Map<String, String> MAP = Collections.singletonMap("first-key", "first-value");
 
     private ObjectMapper objectMapper;
 
@@ -51,12 +53,14 @@ public class EventUnitTest extends AbstractUnitTest {
 
     @Test
     void testEventMsg() throws JsonProcessingException {
-        SomethingHappenedEvent event = new SomethingHappenedEvent(MsgHeader.emptyMsgHeader(),"payload");
-        String serializedEvent = objectMapper.writer().writeValueAsString(event);
+        SomePayload somePayload = getPayload();
+        SomethingHappenedEvent event = new SomethingHappenedEvent(MsgHeader.emptyMsgHeader(),somePayload);
+        String serialized = objectMapper.writer().writeValueAsString(event);
         log.info("event:{}",event);
-        log.info("serializedEvent: {}",serializedEvent);
-        SomethingHappenedEvent event2 = objectMapper.readerFor(SomethingHappenedEvent.class).readValue(serializedEvent);
-        log.info("deserializedEvent:{}",event2);
+        log.info("serialized: {}",serialized);
+        SomethingHappenedEvent deserialized = objectMapper.readerFor(SomethingHappenedEvent.class).readValue(serialized);
+        log.info("deserialized:{}",deserialized);
+
 
     }
 
@@ -64,16 +68,24 @@ public class EventUnitTest extends AbstractUnitTest {
     public void whenDeserializingDateUsingCustomDeserializer_thenCorrect() throws IOException {
 
         String json = "{\n" +
+                "  \"msgType\" : \"EVENT\",\n" +
+                "  \"eventName\" : \"SomethingHappenedEvent\",\n" +
+                "  \"eventCreatedAt\" : \"2022-07-29T12:45:40.005592Z\",\n" +
                 "  \"msgHeader\" : { },\n" +
-                "  \"msgPayload\" : \"payload\",\n" +
-                "  \"eventCreatedAt\" : \"" + DATE_TIME_STAMP + "\",\n" +
-                "  \"msgType\" : \"EVENT\"\n" +
+                "  \"msgPayload\" : {\n" +
+                "    \"uuid\" : \"48fa9fb7-1177-48fa-8198-0f80f06b100a\",\n" +
+                "    \"intValue\" : 1,\n" +
+                "    \"stringValue\" : \"payload\",\n" +
+                "    \"stringMap\" : {\n" +
+                "      \"first-key\" : \"first-value\"\n" +
+                "    }\n" +
+                "  }\n" +
                 "}";
 
         SomethingHappenedEvent event = objectMapper.readerFor(SomethingHappenedEvent.class).readValue(json);
-        assertEquals(DATE_TIME_STAMP, getFormattedInstant(event.getEventCreatedAt()));
+        assertEquals("2022-07-29T12:45:40.005592Z", getFormattedInstant(event.getEventCreatedAt()));
         assertEquals(MsgHeader.emptyMsgHeader(), event.getMsgHeader());
-        assertEquals(PAYLOAD, event.getMsgPayload());
+        assertEquals(getPayload(), event.getMsgPayload());
         assertEquals(Msg.MsgType.EVENT, event.getMsgType());
     }
 
@@ -85,7 +97,7 @@ public class EventUnitTest extends AbstractUnitTest {
         assertNull(msgHeader.get(KEY_WITH_NULL_VALUE));
         assertEquals(VALUE, msgHeader.get(OTHER_KEY));
 
-        SomethingHappenedEvent event = new SomethingHappenedEvent(msgHeader, PAYLOAD);
+        SomethingHappenedEvent event = new SomethingHappenedEvent(msgHeader, getPayload());
         String serialized = objectMapper.writer().writeValueAsString(event);
         log.info("event:{}",event);
         log.info("serialized: {}",serialized);
@@ -94,24 +106,24 @@ public class EventUnitTest extends AbstractUnitTest {
         assertNotNull(getFormattedInstant(event.getEventCreatedAt()));
         assertEquals(3, event.getMsgHeader().size());
         assertEquals(msgHeader, event.getMsgHeader());
-        assertEquals(PAYLOAD, event.getMsgPayload());
+        assertEquals(getPayload(), event.getMsgPayload());
         assertEquals(Msg.MsgType.EVENT, event.getMsgType());
         assert(event.getMsgHeader().containsKey("nullkey"));
         assert(event.getMsgHeader().containsValue(null));
     }
 
+    private SomePayload getPayload() {
+        return new SomePayload(TEST_UUID, 1, PAYLOAD, MAP);
+    }
+
     @Getter
     @Setter
-    @EqualsAndHashCode
-    @JsonPropertyOrder({"msgType", "eventName","eventCreatedAt", "msgHeader", "msgPayload" })
+    @EqualsAndHashCode(callSuper = true)
     // see https://github.com/FasterXML/jackson-annotations/wiki/Jackson-Annotations
-    static class SomethingHappenedEvent implements Event<Object>{
+    static class SomethingHappenedEvent extends AbstractEvent<SomePayload> {
 
-        private final MsgHeader msgHeader;
-        private final Object msgPayload;
         @JsonProperty("eventName")
         private final String eventName = "SomethingHappenedEvent";
-        private final Instant eventCreatedAt;
 
         @JsonProperty("msgType")
         private final MsgType msgType = MsgType.EVENT;
@@ -121,16 +133,14 @@ public class EventUnitTest extends AbstractUnitTest {
         @JsonCreator
         public SomethingHappenedEvent(
                 @JsonProperty("msgHeader") MsgHeader msgHeader,
-                @JsonProperty("msgPayload") Object msgPayload,
+                @JsonProperty("msgPayload") SomePayload msgPayload,
                 @JsonProperty("eventCreatedAt") Instant eventCreatedAt) {
-            this.msgHeader = msgHeader;
-            this.msgPayload = msgPayload;
-            this.eventCreatedAt = eventCreatedAt;
+            super(msgHeader, msgPayload,eventCreatedAt);
         }
 
         public SomethingHappenedEvent(
                 @JsonProperty("msgHeader") MsgHeader msgHeader,
-                @JsonProperty("msgPayload") Object msgPayload) {
+                @JsonProperty("msgPayload") SomePayload msgPayload) {
                 this(msgHeader, msgPayload,clock.instant());
         }
 
@@ -145,5 +155,30 @@ public class EventUnitTest extends AbstractUnitTest {
 
     }
 
+    @Getter
+    @Setter
+    @ToString
+    @EqualsAndHashCode()
+    static class SomePayload implements Serializable {
+
+        private final UUID uuid;
+        private final Integer intValue;
+        private final String stringValue;
+        private final Map<String,String> stringMap;
+
+        @JsonCreator
+        public SomePayload(
+                @JsonProperty("uuid") UUID uuid,
+                @JsonProperty("intValue") Integer intValue,
+                @JsonProperty("stringValue") String stringValue,
+                @JsonProperty("stringMap") Map<String,String> stringMap) {
+
+            this.uuid = uuid;
+            this.intValue = intValue;
+            this.stringValue = stringValue;
+            this.stringMap = stringMap;
+        }
+
+    }
 
 }

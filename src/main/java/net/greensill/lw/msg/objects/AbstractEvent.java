@@ -15,11 +15,11 @@ import static net.greensill.lw.common.Common.getFormattedInstant;
 @Getter
 @Setter
 @EqualsAndHashCode
-@JsonPropertyOrder({"msgType", "eventName","eventCreatedAt", "msgHeader", "msgPayload" })
-public abstract class AbstractEvent implements Event<Object>{
+@JsonPropertyOrder({"msgType", "eventName", "eventCreatedAt", "msgHeader", "msgPayload"})
+public abstract class AbstractEvent<T> implements Event<T> {
 
     private final MsgHeader msgHeader;
-    private final Object msgPayload;
+    private final T msgPayload;
 
     private final Instant eventCreatedAt;
 
@@ -31,7 +31,7 @@ public abstract class AbstractEvent implements Event<Object>{
     @JsonCreator
     public AbstractEvent(
             @JsonProperty("msgHeader") MsgHeader msgHeader,
-            @JsonProperty("msgPayload") Object msgPayload,
+            @JsonProperty("msgPayload") T msgPayload,
             @JsonProperty("eventCreatedAt") Instant eventCreatedAt) {
         this.msgHeader = msgHeader;
         this.msgPayload = msgPayload;
@@ -40,16 +40,16 @@ public abstract class AbstractEvent implements Event<Object>{
 
     public AbstractEvent(
             @JsonProperty("msgHeader") MsgHeader msgHeader,
-            @JsonProperty("msgPayload") Object msgPayload) {
-        this(msgHeader, msgPayload,clock.instant());
+            @JsonProperty("msgPayload") T msgPayload) {
+        this(msgHeader, msgPayload, clock.instant());
     }
 
     @Override
     public String toString() {
         StringBuilder sb = new StringBuilder().append(" [");
-        if (getEventName()!=null) sb.append("eventName=").append(getEventName()).append(", ");
-        if (getMsgPayload()!=null) sb.append("msgPayload=").append(getMsgPayload()).append(", ");
-        if (getEventCreatedAt() !=null) sb.append("eventCreatedAt=").append(getFormattedInstant(getEventCreatedAt()));
+        if (getEventName() != null) sb.append("eventName=").append(getEventName()).append(", ");
+        if (getMsgPayload() != null) sb.append("msgPayload=").append(getMsgPayload()).append(", ");
+        if (getEventCreatedAt() != null) sb.append("eventCreatedAt=").append(getFormattedInstant(getEventCreatedAt()));
         return sb.append("]").toString();
     }
 
