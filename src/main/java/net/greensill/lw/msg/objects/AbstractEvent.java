@@ -26,7 +26,7 @@ public abstract class AbstractEvent<T> implements Event<T> {
     @JsonProperty("msgType")
     private final MsgType msgType = MsgType.EVENT;
 
-    private static Clock clock = Clock.systemUTC();
+    private static final Clock clock = Clock.systemUTC();
 
     @JsonCreator
     public AbstractEvent(
